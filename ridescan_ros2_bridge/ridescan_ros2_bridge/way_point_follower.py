@@ -10,6 +10,8 @@ Run this script 15 times to collect the calibration dataset.
 
 Usage:
     python3 mission_runner.py
+    
+    Author: Davies Iyanuoluwa Ogunsina
 """
 
 import time
@@ -22,7 +24,6 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 
 
-# MISSION WAYPOINTS — adjust x, y to match your Gazebo map
 # Format: (x, y, yaw_degrees)
 WAYPOINTS = [
     ( 1.0,  0.0,   0.0),   # waypoint 1 — dock exit

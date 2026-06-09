@@ -9,6 +9,8 @@ navigation goals and publishes zero velocity to stop the robot.
 
 RideScan demonstrates risk-aware autonomous navigation by connecting
 robot telemetry, anomaly/risk detection, and real-time safety intervention.
+
+Author: Davies Iyanuoluwa Ogunsina
 """
 
 

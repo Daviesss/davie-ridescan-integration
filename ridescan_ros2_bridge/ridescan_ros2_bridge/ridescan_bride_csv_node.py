@@ -11,6 +11,8 @@ Subscribes:
   /odom     (nav_msgs/Odometry)
   /scan     (sensor_msgs/LaserScan)
   /cmd_vel  (geometry_msgs/Twist)
+
+Author: Davies Iyanuoluwa Ogunsina
 """
 
 import csv

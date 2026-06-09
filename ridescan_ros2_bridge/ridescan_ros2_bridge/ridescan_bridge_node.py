@@ -7,6 +7,8 @@ ROS 2 bridge that streams robot telemetry to the RideScan monitoring API.
 A ROS 2 node that sits between the robot and the RideScan cloud.
 Robot publishes data to ROS topics as normal,
 this node listens to all of them, packages the data, and sends it to RideScan's API every second.
+
+Author: Davies Iyanuoluwa Ogunsina
 """
 
 import os

@@ -11,6 +11,8 @@ is triggered here, and get_model_status() is polled until results are ready.
 Publishes:
   /ridescan/risk_score    (std_msgs/Float32)         0.0 (healthy) to 1.0 (critical)
   /ridescan/diagnostics   (diagnostic_msgs/DiagnosticArray)  OK / WARN / ERROR
+  
+  Author: Davies Iyanuoluwa Ogunsina
 """
 
 import math

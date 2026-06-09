@@ -9,6 +9,8 @@ colour-coded danger zones matching the safety node thresholds.
 
 Run alongside the diagnostics and safety nodes:
   ros2 run ridescan_ros2_bridge ridescan_risk_plot
+  
+  Author: Davies Iyanuoluwa Ogunsina
 """
 
 import rclpy

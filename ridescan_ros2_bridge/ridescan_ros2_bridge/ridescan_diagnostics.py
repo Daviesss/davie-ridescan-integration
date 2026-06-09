@@ -15,6 +15,8 @@ How it works:
   3. Node publishes risk score to /ridescan/risk_score
   4. Node publishes diagnostic status to /ridescan/diagnostics
   5. Other nodes (e.g. safety node) can subscribe and react
+  
+  Author: Davies Iyanuoluwa Ogunsina
 """
 
 import os
