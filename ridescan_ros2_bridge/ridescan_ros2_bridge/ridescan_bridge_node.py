@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """
-ridescan_bridge_node.py
 -----------------------
 ROS 2 bridge that streams robot telemetry to the RideScan monitoring API.
 
