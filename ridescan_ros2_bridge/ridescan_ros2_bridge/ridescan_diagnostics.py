@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-ridescan_diagnostics_node.py
-
 Polls the RideScan API every 5 seconds for risk scores and anomalies,
 then publishes them back into ROS 2 so the robot can react.
 
