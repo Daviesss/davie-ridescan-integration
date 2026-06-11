@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """
-mission_runner.py
 
 Sends Davie through a fixed sequence of waypoints using Nav2's
 NavigateToPose action, then returns to the start position.
