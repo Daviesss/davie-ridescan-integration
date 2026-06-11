@@ -49,6 +49,7 @@ def yaw_to_quaternion(yaw_deg: float):
     }
 
 
+# implementation class.....
 class MissionRunner(Node):
 
     def __init__(self):
@@ -87,17 +88,20 @@ class MissionRunner(Node):
             f"Mission [{MISSION_NAME}] complete. All {len(WAYPOINTS)} waypoints reached."
         )
         return True
-
+   
+    # Helper method to send a NavigateToPose goal and wait for the result
     def _send_goal(self, x: float, y: float, yaw_deg: float) -> bool:
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose = PoseStamped()
         goal_msg.pose.header.frame_id = "map"
         goal_msg.pose.header.stamp    = self.get_clock().now().to_msg()
-
+        
+        # publish robot goal pose
         goal_msg.pose.pose.position.x = x
         goal_msg.pose.pose.position.y = y
         goal_msg.pose.pose.position.z = 0.0
-
+       
+       # Convert yaw to quaternion for orientation
         q = yaw_to_quaternion(yaw_deg)
         goal_msg.pose.pose.orientation.x = q["x"]
         goal_msg.pose.pose.orientation.y = q["y"]
