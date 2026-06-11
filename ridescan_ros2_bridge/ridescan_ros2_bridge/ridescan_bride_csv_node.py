@@ -77,13 +77,14 @@ class RideScanBridgeNode(Node):
         self.rows       = []
         self.robot_id   = None
         self.mission_id = None
+        self.run_counter = 1
 
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
         self.create_subscription(Odometry, "/odom", self.odom_callback, SENSOR_QOS)
         self.create_subscription(LaserScan, "/scan", self.scan_callback, SENSOR_QOS)
         self.create_subscription(Twist, "/cmd_vel", self.cmd_vel_callback, RELIABLE_QOS)
-        self.create_timer(UPLOAD_INTERVAL_SEC, self.flush)
+        # self.create_timer(UPLOAD_INTERVAL_SEC, self.flush)
 
         mode = "[DRY RUN]" if DRY_RUN else "[LIVE]"
         self.get_logger().info(
@@ -95,7 +96,7 @@ class RideScanBridgeNode(Node):
         twist = msg.twist.twist
         self.add_row(
             "odom",
-            stamp_to_iso(msg.header.stamp),
+            now_iso(),
             {
                 "x":         pose.position.x,
                 "y":         pose.position.y,
@@ -111,7 +112,7 @@ class RideScanBridgeNode(Node):
         valid = [r for r in msg.ranges if msg.range_min < r < msg.range_max]
         self.add_row(
             "scan",
-            stamp_to_iso(msg.header.stamp),
+            now_iso(),
             {
                 "range_min":            msg.range_min,
                 "range_max":            msg.range_max,
