@@ -21,12 +21,12 @@ representing that single run.
 - Flushes remaining data to disk on shutdown so no telemetry is lost
 - The mode writes CSVs locally without uploading
 
-**Terminal 1  start the bridge node first and leave it running:**
+**Terminal 1 — start the bridge node first and leave it running:**
 ```bash
 ros2 run ridescan_ros2_bridge ride_scan_csv_node
 ```
 
-**Terminal 2  run the mission:**
+**Terminal 2 — run the mission:**
 ```bash
 for i in {1..15}; do
   echo "Starting calibration run $i of 15..."
@@ -36,7 +36,7 @@ for i in {1..15}; do
 done
 ```
 
-**Alternative.. one bridge per run (cleanest CSV-per-run boundary):**
+**Alternative — one bridge per run (cleanest CSV-per-run boundary):**
 ```bash
 for i in {1..15}; do
   echo "Starting calibration run $i of 15..."
@@ -48,7 +48,7 @@ for i in {1..15}; do
   # run one mission
   ros2 run ridescan_ros2_bridge way_point_follower_node
   
-  # kill bridge node.... destroy_node() flushes remaining rows to CSV
+  # kill bridge node — destroy_node() flushes remaining rows to CSV
   kill $BRIDGE_PID
   
   echo "Run $i complete. CSV written."
@@ -90,5 +90,94 @@ ros2 run ridescan_ros2_bridge way_point_follower_node
 This is the node that generates the consistent, repeatable navigation
 behavior that `ridescan_bridge_node` records as telemetry. Run it 15 times
 with the bridge running alongside, and together they produce the calibration
-baseline dataset , one complete perimeter inspection per run, captured as a
+baseline dataset — one complete perimeter inspection per run, captured as a
 timestamped CSV.
+
+---
+
+## Mission Briefing
+
+### What is the Mission?
+
+The mission is a **Warehouse Perimeter Inspection** executed by Davie,
+a simulated differential-drive mobile robot running on ROS 2 Humble and
+Gazebo Sim. Starting from a fixed dock position, Davie navigates
+autonomously through 5 predefined waypoints that trace the boundary of a
+simulated warehouse environment, then returns to its origin.
+
+The mission is executed entirely autonomously via the `way_point_follower_node`,
+which sends each waypoint as a Nav2 `NavigateToPose` action goal, waits for
+confirmed arrival, then proceeds to the next. No manual intervention is
+required between waypoints. Each run is identical in route, speed, and
+behavior producing a clean, repeatable telemetry baseline across all 15
+calibration instances.
+
+### Real-World Commercial Use Case
+
+Warehouse perimeter inspection is one of the highest-frequency autonomous
+robot deployments in operation today. In real-world facilities, robots patrol
+boundaries, monitor access points, detect environmental anomalies, verify
+asset placement, and flag unauthorized activity — all without human
+supervision, across multiple shifts, every single day.
+
+The scale of this problem is significant:
+- A single warehouse may run 50–200 inspection loops per day
+- Robots operate unsupervised for hours at a time
+- Hardware degradation is gradual and often invisible until failure
+- A single missed anomaly can escalate into a mission failure, hardware
+  loss, or a safety incident
+
+Real-world deployments this mission maps directly to:
+
+| Industry | Application |
+|---|---|
+| Warehouse automation | Amazon Robotics, Fetch Robotics, 6 River Systems |
+| Facility security | Access point monitoring, perimeter patrol |
+| Industrial inspection | Oil & gas plants, manufacturing floors |
+| Healthcare | Hospital corridor patrol, asset tracking |
+| Hospitality | Hotel and office campus delivery and monitoring |
+
+### How RideScan Monitors This Mission
+
+RideScan acts as an independent safety and reliability layer — a behavioral
+health monitor that learns what a normal, healthy inspection run looks like
+and flags any deviation as a quantified risk signal.
+
+**Step 1 Telemetry Collection**
+
+During every mission run, `ridescan_bridge_node` collects timestamped
+telemetry from three ROS 2 topics:
+
+| Signal | Topic | What It Captures |
+|---|---|---|
+| Odometry | `/odom` | Position, velocity, heading per timestep |
+| Laser scan | `/scan` | Obstacle distances, environment geometry |
+| Velocity commands | `/cmd_vel` | Motor commands, speed profile per segment |
+
+Each run produces one CSV file — one Mission Instance in RideScan's
+architecture.
+
+**Step 2 Calibration (Learning Normal Behavior)**
+
+15 clean, sequential runs of the identical mission are collected under
+consistent conditions. RideScan processes these 15 files to learn the
+robot's normal behavioral envelope:
+- Expected velocity profile between each waypoint
+- Typical obstacle distances along the route
+- Normal odometry progression and heading changes
+- Baseline motor command patterns
+
+---
+
+## Calibration Baseline Dataset
+
+The calibration dataset consists of exactly **15 CSV files**, each
+representing one complete, uninterrupted execution of the warehouse
+perimeter inspection mission.
+
+### What constitutes one clean run
+
+- Davie successfully navigates all 5 waypoints without aborting
+- The bridge node is active for the full duration of the run
+- No unexpected obstacles or environment changes during the run
+- One CSV file is written per run on bridge shutdown
