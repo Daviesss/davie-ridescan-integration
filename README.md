@@ -21,12 +21,12 @@ representing that single run.
 - Flushes remaining data to disk on shutdown so no telemetry is lost
 - The mode writes CSVs locally without uploading
 
-**Terminal 1 — start the bridge node first and leave it running:**
+**Terminal 1  start the bridge node first and leave it running:**
 ```bash
 ros2 run ridescan_ros2_bridge ride_scan_csv_node
 ```
 
-**Terminal 2 — run the mission:**
+**Terminal 2  run the mission:**
 ```bash
 for i in {1..15}; do
   echo "Starting calibration run $i of 15..."
@@ -36,7 +36,7 @@ for i in {1..15}; do
 done
 ```
 
-**Alternative — one bridge per run (cleanest CSV-per-run boundary):**
+**Alternative.. one bridge per run (cleanest CSV-per-run boundary):**
 ```bash
 for i in {1..15}; do
   echo "Starting calibration run $i of 15..."
