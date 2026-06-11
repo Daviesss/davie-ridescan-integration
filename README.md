@@ -48,7 +48,7 @@ for i in {1..15}; do
   # run one mission
   ros2 run ridescan_ros2_bridge way_point_follower_node
   
-  # kill bridge node — destroy_node() flushes remaining rows to CSV
+  # kill bridge node.... destroy_node() flushes remaining rows to CSV
   kill $BRIDGE_PID
   
   echo "Run $i complete. CSV written."
