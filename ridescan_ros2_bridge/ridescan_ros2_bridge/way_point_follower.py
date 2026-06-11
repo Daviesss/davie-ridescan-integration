@@ -8,7 +8,7 @@ Each full run of this script = one mission instance.
 Run this script 15 times to collect the calibration dataset.
 
 Usage:
-    python3 mission_runner.py
+    python3 way_point_follower.py
     
     Author: Davies Iyanuoluwa Ogunsina
 """
