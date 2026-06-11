@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """
-ridescan_bridge_node.py
 
 ROS 2 -> RideScan bridge using the ridescanapi SDK.
 
