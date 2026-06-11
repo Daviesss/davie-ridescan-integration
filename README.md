@@ -137,6 +137,22 @@ Real-world deployments this mission maps directly to:
 | Healthcare | Hospital corridor patrol, asset tracking |
 | Hospitality | Hotel and office campus delivery and monitoring |
 
+### Mission Illustration Video
+The following video demonstrates one complete execution of the Warehouse Perimeter Inspection mission in Gazebo Sim. Davie autonomously exits the dock, navigates through the five predefined perimeter waypoints using Nav2, and returns to its starting position without manual intervention.
+
+The video illustrates the exact behavior used to generate the RideScan calibration baseline dataset. Each of the 15 calibration runs follows this same route and operational profile, allowing RideScan to learn the robot's normal behavioral envelope.
+Video contents:
+- Gazebo simulation environment
+- Nav2-driven waypoint execution
+- Davie's traversal through all five waypoints
+- Return to dock
+- Terminal output showing mission progress 
+- RideScan bridge node recording telemetry in parallel 
+
+Video file: [Watch the Warehouse Perimeter Inspection Demo/Demonstration video](https://youtu.be/x1DSrypx_-4)
+
+
+
 ### How RideScan Monitors This Mission
 
 RideScan acts as an independent safety and reliability layer a behavioral
