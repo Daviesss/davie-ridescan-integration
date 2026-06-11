@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 
-ROS 2 -> RideScan bridge using the ridescanapi SDK.
-
 Collects telemetry from /odom, /scan, and /cmd_vel, batches it into CSV
 files, and uploads them to a RideScan robot mission for inference.
 
