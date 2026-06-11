@@ -21,12 +21,12 @@ representing that single run.
 - Flushes remaining data to disk on shutdown so no telemetry is lost
 - The mode writes CSVs locally without uploading
 
-**Terminal 1 — start the bridge node first and leave it running:**
+**Terminal 1 start the bridge node first and leave it running:**
 ```bash
 ros2 run ridescan_ros2_bridge ride_scan_csv_node
 ```
 
-**Terminal 2 — run the mission:**
+**Terminal 2 run the mission:**
 ```bash
 for i in {1..15}; do
   echo "Starting calibration run $i of 15..."
@@ -36,7 +36,7 @@ for i in {1..15}; do
 done
 ```
 
-**Alternative — one bridge per run (cleanest CSV-per-run boundary):**
+**Alternative one bridge per run (cleanest CSV-per-run boundary):**
 ```bash
 for i in {1..15}; do
   echo "Starting calibration run $i of 15..."
@@ -48,7 +48,7 @@ for i in {1..15}; do
   # run one mission
   ros2 run ridescan_ros2_bridge way_point_follower_node
   
-  # kill bridge node — destroy_node() flushes remaining rows to CSV
+  # kill bridge node destroy_node() flushes remaining rows to CSV
   kill $BRIDGE_PID
   
   echo "Run $i complete. CSV written."
@@ -90,7 +90,7 @@ ros2 run ridescan_ros2_bridge way_point_follower_node
 This is the node that generates the consistent, repeatable navigation
 behavior that `ridescan_bridge_node` records as telemetry. Run it 15 times
 with the bridge running alongside, and together they produce the calibration
-baseline dataset — one complete perimeter inspection per run, captured as a
+baseline dataset one complete perimeter inspection per run, captured as a
 timestamped CSV.
 
 ---
@@ -117,7 +117,7 @@ calibration instances.
 Warehouse perimeter inspection is one of the highest-frequency autonomous
 robot deployments in operation today. In real-world facilities, robots patrol
 boundaries, monitor access points, detect environmental anomalies, verify
-asset placement, and flag unauthorized activity — all without human
+asset placement, and flag unauthorized activity all without human
 supervision, across multiple shifts, every single day.
 
 The scale of this problem is significant:
@@ -139,7 +139,7 @@ Real-world deployments this mission maps directly to:
 
 ### How RideScan Monitors This Mission
 
-RideScan acts as an independent safety and reliability layer — a behavioral
+RideScan acts as an independent safety and reliability layer a behavioral
 health monitor that learns what a normal, healthy inspection run looks like
 and flags any deviation as a quantified risk signal.
 
@@ -154,7 +154,7 @@ telemetry from three ROS 2 topics:
 | Laser scan | `/scan` | Obstacle distances, environment geometry |
 | Velocity commands | `/cmd_vel` | Motor commands, speed profile per segment |
 
-Each run produces one CSV file — one Mission Instance in RideScan's
+Each run produces one CSV file one Mission Instance in RideScan's
 architecture.
 
 **Step 2 Calibration (Learning Normal Behavior)**
