@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """
-ridescan_diagnostics_node.py
 
 Polls the RideScan API for inference results and publishes risk scores
 back into ROS 2 so the robot can react.
