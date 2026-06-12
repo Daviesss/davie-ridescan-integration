@@ -191,6 +191,45 @@ The calibration dataset consists of exactly **15 CSV files**, each
 representing one complete, uninterrupted execution of the warehouse
 perimeter inspection mission.
 
+
+
+## Calibration Baseline Dataset
+
+The calibration dataset consists of exactly **15 CSV files**, each
+representing one complete, uninterrupted execution of the warehouse
+perimeter inspection mission.
+
+### What constitutes one clean run
+
+- Davie successfully navigates all 5 waypoints without aborting
+- The bridge node is active for the full duration of the run
+- No unexpected obstacles or environment changes during the run
+- One CSV file is written per run on bridge shutdown
+
+### What the Calibration Files Do
+
+Each CSV file is a complete behavioral record of one mission run. Together, the 15 files form the dataset RideScan uses to learn what normal looks like for this robot on this mission.
+
+**What each file contains:**
+
+Every row in a CSV is a timestamped telemetry message from one of three ROS 2 topics, captured in real time as Davie navigated the perimeter loop. A single run produces hundreds of rows interleaving odom, scan, and cmd_vel messages at roughly 20-30Hz across the full mission duration.
+
+**What RideScan learns from them:**
+
+By processing all 15 files, RideScan builds a statistical model of normal behavior across every phase of the mission:
+
+| Phase | What the files capture |
+|---|---|
+| Dock exit | Initial acceleration profile, heading establishment |
+| Straight segments | Cruise velocity, obstacle clearance distances, heading stability |
+| Waypoint turns | Angular velocity ramp-up and ramp-down signature, turn radius |
+| Waypoint arrival | Deceleration profile, stop position accuracy |
+| Return to dock | Full route odometry progression, cumulative heading change |
+
+**Why 15 runs:**
+
+A single run could be noise. Two or three runs could share a systematic bias. Fifteen runs gives RideScan enough samples to distinguish genuine behavioral patterns from run-to-run variation, producing a statistically robust baseline. Any future run that deviates meaningfully from this envelope will be flagged as a quantified risk signal rather than dismissed as natural variance.
+
 ### What constitutes one clean run
 
 - Davie successfully navigates all 5 waypoints without aborting
