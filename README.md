@@ -238,14 +238,6 @@ The calibration dataset consists of exactly **15 CSV files**, each
 representing one complete, uninterrupted execution of the warehouse
 perimeter inspection mission.
 
-
-
-## Calibration Baseline Dataset
-
-The calibration dataset consists of exactly **15 CSV files**, each
-representing one complete, uninterrupted execution of the warehouse
-perimeter inspection mission.
-
 ### What constitutes one clean run
 
 - Davie successfully navigates all 5 waypoints without aborting
