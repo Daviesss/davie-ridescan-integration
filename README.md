@@ -151,6 +151,53 @@ Video contents:
 
 Video file: [Watch the Warehouse Perimeter Inspection Demo/Demonstration video](https://youtu.be/x1DSrypx_-4)
 
+---
+
+## System Architecture
+
+The following diagram illustrates the end-to-end flow of the Davie–RideScan
+integration, from autonomous mission execution in simulation through
+telemetry extraction, calibration, and future risk scoring.
+
+```text
+                    Gazebo Sim
+                         │
+                         ▼
+             Nav2 Waypoint Follower
+                         │
+                         ▼
+               Davie Executes Mission
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+        ▼                ▼                ▼
+     /odom            /scan           /cmd_vel
+        │                │                │
+        └────────────────┼────────────────┘
+                         │
+                         ▼
+              ridescan_bridge_node
+                         │
+                         ▼
+                Mission CSV Files
+                  (15 Instances)
+                         │
+                         ▼
+              RideScan Calibration
+              (Baseline Learning)
+                         │
+                         ▼
+               Future RISQ Scoring
+               (Inference Phase)
+```
+
+During calibration, the telemetry collected from each mission execution is
+persisted as a separate Mission Instance CSV. RideScan uses these 15 clean,
+near-identical mission instances to learn the robot's normal behavioral
+fingerprint. Once deployed, future mission runs can be compared against this
+baseline to quantify operational risk and detect early signs of anomalous
+behavior.
+
 
 
 ### How RideScan Monitors This Mission
@@ -214,6 +261,14 @@ Each CSV file is a complete behavioral record of one mission run. Together, the 
 
 Every row in a CSV is a timestamped telemetry message from one of three ROS 2 topics, captured in real time as Davie navigated the perimeter loop. A single run produces hundreds of rows interleaving odom, scan, and cmd_vel messages at roughly 20-30Hz across the full mission duration.
 
+**What each file contains:**
+
+Every row in a CSV is a timestamped telemetry message from one of three ROS 2
+topics, captured in real time as Davie navigated the perimeter loop. A single
+run produces hundreds of rows interleaving `odom`, `scan`, and `cmd_vel`
+messages across the full mission duration.
+
+
 **What RideScan learns from them:**
 
 By processing all 15 files, RideScan builds a statistical model of normal behavior across every phase of the mission:
@@ -236,3 +291,56 @@ A single run could be noise. Two or three runs could share a systematic bias. Fi
 - The bridge node is active for the full duration of the run
 - No unexpected obstacles or environment changes during the run
 - One CSV file is written per run on bridge shutdown
+
+
+### Calibration Setup and Consistency
+
+The 15 calibration runs in this dataset were collected under controlled,
+deterministic conditions. This was a deliberate design decision to give
+RideScan the cleanest possible baseline to learn from.
+
+**How consistency was achieved:**
+
+Every run uses the same fixed waypoint coordinates, hardcoded directly into
+the `way_point_follower_node`:
+
+| Waypoint | x | y | Yaw |
+|---|---|---|---|
+| 1 | 1.0 | 0.0 | 0° |
+| 2 | 1.0 | 2.5 | 90° |
+| 3 | -1.0 | 2.5 | 180° |
+| 4 | -1.0 | 0.0 | 270° |
+| 5 | 0.0 | 0.0 | 0° |
+
+- The robot starts from the same dock position every run (`x=0.0`, `y=0.0`)
+- The Gazebo environment is identical across all runs no dynamic obstacles and no environment changes
+- Nav2 receives the same goal sequence every run via `NavigateToPose` action calls
+- No probabilistic seeding or randomized starting conditions are used
+- The bridge node captures telemetry for the full duration of every run without gaps
+
+**What this means for RideScan:**
+
+Because every run follows the same route from the same starting position in
+the same environment, the behavioral variation between runs is minimal 
+limited only to minor floating-point differences in how Nav2 executes the
+path at runtime.
+
+RideScan does not have to account for algorithmic randomness or shifting
+starting conditions when building the baseline.
+
+The result is a tight, precise behavioral fingerprint rather than a wide,
+averaged envelope.
+
+Each of the three telemetry signals tells nearly the same story across all
+15 runs:
+
+| Signal | What stays consistent across runs |
+|---|---|
+| `/odom` | Position progression, velocity profile, heading changes at each waypoint |
+| `/scan` | Obstacle distances at each route segment, environment geometry |
+| `/cmd_vel` | Motor command patterns, acceleration and deceleration profiles, turn signatures |
+
+This consistency is what makes the calibration baseline reliable. When
+RideScan flags a future run as anomalous, it is comparing against a baseline
+built from runs that were as close to identical as simulation allows  not a
+baseline built from runs that were each slightly different by design.
