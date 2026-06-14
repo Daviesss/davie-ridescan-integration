@@ -239,15 +239,31 @@ representing one complete, uninterrupted execution of the warehouse
 perimeter inspection mission.
 
 ## Calibration Dataset Location
+
 The complete 15-run calibration baseline dataset used for RideScan model calibration is included in this repository:
+
+```
 davie-ridescan-integration/
 └── ridescan_ros2_bridge/
     └── calibration_baseline/
-        ├── ridescan_ros2_20260610_084627_597749.csv
-        ├── ridescan_ros2_20260610_151713_192351.csv 
-        ├── ...
-        └── run_15.csv
-These files represent the exact Mission Instances used to generate the RideScan baseline model described throughout this README. Each CSV corresponds to one complete execution of the Warehouse Perimeter Inspection mission under controlled conditions.
+        ├── ridescan_ros2_20260610_084627_597749.csv   # Run 1
+        ├── ridescan_ros2_20260610_084930_157166.csv   # Run 2
+        ├── ridescan_ros2_20260610_143245_933925.csv   # Run 3
+        ├── ridescan_ros2_20260610_151713_192351.csv   # Run 4
+        ├── ridescan_ros2_20260610_211253_709844.csv   # Run 5
+        ├── ridescan_ros2_20260610_211750_044966.csv   # Run 6
+        ├── ridescan_ros2_20260610_212107_347571.csv   # Run 7
+        ├── ridescan_ros2_20260611_170240_352360.csv   # Run 8
+        ├── ridescan_ros2_20260611_214929_554443.csv   # Run 9
+        ├── ridescan_ros2_20260611_215533_216621.csv   # Run 10
+        ├── ridescan_ros2_20260611_220155_160769.csv   # Run 11
+        ├── ridescan_ros2_20260611_220726_034614.csv   # Run 12
+        ├── ridescan_ros2_20260611_222731_618217.csv   # Run 13
+        ├── ridescan_ros2_20260611_223148_451327.csv   # Run 14
+        └── ridescan_ros2_20260611_223458_539926.csv   # Run 15
+```
+
+These files represent the exact Mission Instances used to generate the RideScan baseline model described throughout this README. Each CSV corresponds to one complete execution of the Warehouse Perimeter Inspection mission under controlled, deterministic conditions.
 
 ### What constitutes one clean run
 
