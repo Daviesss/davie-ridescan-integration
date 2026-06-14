@@ -238,6 +238,17 @@ The calibration dataset consists of exactly **15 CSV files**, each
 representing one complete, uninterrupted execution of the warehouse
 perimeter inspection mission.
 
+## Calibration Dataset Location
+The complete 15-run calibration baseline dataset used for RideScan model calibration is included in this repository:
+davie-ridescan-integration/
+└── ridescan_ros2_bridge/
+    └── calibration_baseline/
+        ├── ridescan_ros2_20260610_084627_597749.csv
+        ├── ridescan_ros2_20260610_151713_192351.csv 
+        ├── ...
+        └── run_15.csv
+These files represent the exact Mission Instances used to generate the RideScan baseline model described throughout this README. Each CSV corresponds to one complete execution of the Warehouse Perimeter Inspection mission under controlled conditions.
+
 ### What constitutes one clean run
 
 - Davie successfully navigates all 5 waypoints without aborting
