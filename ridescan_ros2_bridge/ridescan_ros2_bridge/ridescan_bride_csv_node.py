@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ridescan_bridge_node.py
+ride_scan_csv_node.py
 
 ROS 2 -> RideScan bridge producing WHEELED_MOBILE-compliant CSV output,
 per RideScan Hackathon Technical Documentation (Section: WHEELED_MOBILE Robot).
@@ -111,7 +111,7 @@ class RideScanBridgeNode(Node):
         }
 
     def write_row(self):
-        # No NaNs/None/empty cells allowed — default to zeroed pose at origin
+        # No NaNs/None/empty cells allowed  default to zeroed pose at origin
         # until the first /odom message arrives.
         odom = self.latest_odom or {
             "pose_position_x": 0.0,
@@ -129,10 +129,10 @@ class RideScanBridgeNode(Node):
         }
 
         row = {
-            # float64 epoch seconds — required as a numeric, not ISO 8601 string
+            # float64 epoch seconds required as a numeric, not ISO 8601 string
             "timestamp": time.time(),
             **odom,
-            # Optional fields — included as 0.0 since empty cells fail validation
+            # Optional fields  included as 0.0 since empty cells fail validation
             "linear_acceleration_x": 0.0,
             "linear_acceleration_y": 0.0,
             "linear_acceleration_z": 0.0,
