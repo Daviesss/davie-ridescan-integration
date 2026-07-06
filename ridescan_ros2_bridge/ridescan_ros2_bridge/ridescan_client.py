@@ -5,7 +5,7 @@ import time
 import requests
 from datetime import datetime, timezone
 
-BASE_URL = "https://prod-v2-staging-d9ftbgc9hkhchqcu.ukwest-01.azurewebsites.net"
+BASE_URL = ""
 
 
 class RideScanClient:
