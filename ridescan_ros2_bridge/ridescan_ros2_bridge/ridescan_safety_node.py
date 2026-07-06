@@ -3,7 +3,7 @@ ridescan_safety_monitor_node.py
 
 Buffers /odom into rolling CSV batches, uploads each batch to RideScan as a
 process_file, runs inference, and if the returned risk_score exceeds a
-threshold, publishes a safety-stop signal that square_controller.py listens
+threshold, publishes a safety-stop signal that way_point_follower.py listens
 for (since this robot uses a direct /cmd_vel P-controller).
 
 Assumes calibration has ALREADY been completed for this robot_id/mission_id.(calibration initially done by ride_scan_calibration_risk_score.py node)
