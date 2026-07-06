@@ -32,6 +32,10 @@ setup(
         'ride_scan_csv_node= ridescan_ros2_bridge.ridescan_bride_csv_node:main',
         'ride_scan_csv_diagnostics= ridescan_ros2_bridge.ridescan_csv_diagnostics:main',
         'way_point_follower_node= ridescan_ros2_bridge.way_point_follower:main', # way point follower node script , robot navigates to the same waypoint in a map or environment repeatedly, often for testing or demonstration purposes.
+        'ride_scan_api_node= ridescan_ros2_bridge.ridescan_api_bridge_node:main',
+        'ride_scan_api_test_node= ridescan_ros2_bridge.ridescan_api_test:main',
+        'ride_scan_odom_plotter_node= ridescan_ros2_bridge.odom_live_plot_path:main',
+        'ride_scan_calibration_risk_score= ridescan_ros2_bridge.ride_scan_calibration_risk_score:main',
         ],
     },
 )
