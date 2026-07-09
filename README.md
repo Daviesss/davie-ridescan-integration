@@ -141,13 +141,14 @@ Real-world deployments this mission maps directly to:
 The following video demonstrates one complete execution of the Warehouse Perimeter Inspection mission in Gazebo Sim. Davie autonomously exits the dock, navigates through the five predefined perimeter waypoints using Nav2, and returns to its starting position without manual intervention.
 
 The video illustrates the exact behavior used to generate the RideScan calibration baseline dataset. Each of the 15 calibration runs follows this same route and operational profile, allowing RideScan to learn the robot's normal behavioral envelope.
+
 Video contents:
 - Gazebo simulation environment
 - Nav2-driven waypoint execution
 - Davie's traversal through all five waypoints
 - Return to dock
-- Terminal output showing mission progress 
-- RideScan bridge node recording telemetry in parallel 
+- Terminal output showing mission progress
+- RideScan bridge node recording telemetry in parallel
 
 Video file: [Watch the Warehouse Perimeter Inspection Demo/Demonstration video](https://youtu.be/x1DSrypx_-4)
 
@@ -163,7 +164,7 @@ telemetry extraction, calibration, and future risk scoring.
                     Gazebo Sim
                          │
                          ▼
-             Nav2 Waypoint Follower
+                    Waypoint Follower
                          │
                          ▼
                Davie Executes Mission
@@ -238,10 +239,6 @@ Each CSV file is a complete behavioral record of one mission run. Together, the 
 
 **What each file contains:**
 
-Every row in a CSV is a timestamped telemetry message from one of three ROS 2 topics, captured in real time as Davie navigated the perimeter loop. A single run produces hundreds of rows interleaving odom, scan, and cmd_vel messages at roughly 20-30Hz across the full mission duration.
-
-**What each file contains:**
-
 Every row in a CSV is a timestamped telemetry message from one of three ROS 2
 topics, captured in real time as Davie navigated the perimeter loop. A single
 run produces hundreds of rows interleaving `odom`, `scan`, and `cmd_vel`
@@ -278,29 +275,10 @@ The 15 calibration runs in this dataset were collected under controlled,
 deterministic conditions. This was a deliberate design decision to give
 RideScan the cleanest possible baseline to learn from.
 
-**How consistency was achieved:**
-
-Every run uses the same fixed waypoint coordinates, hardcoded directly into
-the `way_point_follower_node`:
-
-| Waypoint | x | y | Yaw |
-|---|---|---|---|
-| 1 | 1.0 | 0.0 | 0° |
-| 2 | 1.0 | 2.5 | 90° |
-| 3 | -1.0 | 2.5 | 180° |
-| 4 | -1.0 | 0.0 | 270° |
-| 5 | 0.0 | 0.0 | 0° |
-
-- The robot starts from the same dock position every run (`x=0.0`, `y=0.0`)
-- The Gazebo environment is identical across all runs no dynamic obstacles and no environment changes
-- Nav2 receives the same goal sequence every run via `NavigateToPose` action calls
-- No probabilistic seeding or randomized starting conditions are used
-- The bridge node captures telemetry for the full duration of every run without gaps
-
 **What this means for RideScan:**
 
 Because every run follows the same route from the same starting position in
-the same environment, the behavioral variation between runs is minimal 
+the same environment, the behavioral variation between runs is minimal
 limited only to minor floating-point differences in how Nav2 executes the
 path at runtime.
 
@@ -321,5 +299,348 @@ Each of the three telemetry signals tells nearly the same story across all
 
 This consistency is what makes the calibration baseline reliable. When
 RideScan flags a future run as anomalous, it is comparing against a baseline
-built from runs that were as close to identical as simulation allows  not a
+built from runs that were as close to identical as simulation allows not a
 baseline built from runs that were each slightly different by design.
+
+---
+
+---
+
+# Stage 3 — Live API Integration & Autonomous Safety Response
+
+## Overview
+
+Stage 3 transforms the calibration pipeline built in Stage 2 into a fully
+operational, real-time safety system. Where Stage 2 produced the behavioral
+baseline, Stage 3 puts that baseline to work: live telemetry from Davie's
+ongoing missions is streamed to RideScan's inference API, risk scores are
+returned in real time, and the robot responds autonomously to any score that
+breaches the critical threshold.
+
+The result is a closed-loop autonomous safety system:
+
+```text
+Robot moves → Telemetry streams → RideScan scores risk →
+Score breaches threshold → Safety stop triggers → Human operator alerted via SMS
+```
+
+This is not a logging pipeline. Every component in Stage 3 closes a real
+operational loop......the robot makes autonomous decisions based on live API
+intelligence, and a human is notified the moment something goes wrong.
+
+---
+
+## Stage 3 Architecture
+
+```text
+                        Gazebo Sim
+                             │
+                             ▼
+                        Waypoint Follower
+                             │
+                             ▼
+                   Davie Executes Mission
+                             │
+               ┌─────────────┼─────────────┐
+               │             │             │
+               ▼             ▼             ▼
+            /odom         /scan        /cmd_vel
+               │             │             │
+               └─────────────┼─────────────┘
+                             │
+                             ▼
+              ridescan_safety_monitor_node
+              (buffers telemetry → CSV batch)
+                             │
+                             ▼
+                  RideScan Inference API
+                  (process_file endpoint)
+                             │
+                             ▼
+                      Risk Score Returned
+                             │
+               ┌─────────────┼─────────────┐
+               │             │             │
+               ▼             ▼             ▼
+        /ridescan/      /ridescan/     Africa's Talking
+        safety_stop     risk_score      SMS Alert
+               │
+               ▼
+     way_point_follower_node
+     (halts robot on True)
+```
+
+---
+
+## Stage 3 Nodes
+
+### 1. `ridescan_safety_monitor_node`
+
+The core of the Stage 3 integration. This node buffers live odometry into
+rolling CSV batches, uploads each batch to RideScan's `process_file`
+endpoint, triggers inference, and publishes a safety stop signal if the
+returned risk score exceeds the configured threshold.
+
+**Responsibilities:**
+- Subscribes to `/odom` and buffers telemetry rows in memory
+- Computes linear acceleration via finite difference of consecutive velocity
+  readings, approximating IMU-derived acceleration without requiring a
+  physical IMU topic
+- Every `batch_seconds` (default: 30s), writes the buffer to a temporary CSV
+  and uploads it to RideScan
+- Calls the inference endpoint and polls until a risk score is returned
+- Publishes the risk score to `/ridescan/risk_score` (Float32)
+- If `risk_score >= risk_threshold`, publishes `True` to `/ridescan/safety_stop` (Bool)
+- Fires an SMS alert via Africa's Talking on both safety stop and recovery events
+- Handles 502 gateway errors gracefully..... verifies whether the file actually
+  landed on the server before treating the upload as a genuine failure
+- Guards against overlapping batch cycles with a `_processing` flag
+
+**Key parameters:**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `api_key` | `$RIDESCAN_API_KEY` | RideScan API key |
+| `robot_id` | `e.......` | Registered robot UUID |
+| `mission_id` | `5.......` | Active mission UUID |
+| `robot_type` | `wheeled_mobile` | Robot classification |
+| `batch_seconds` | `30.0` | Telemetry batch interval |
+| `risk_threshold` | `40.0` | Safety stop trigger level |
+
+**Topics published:**
+
+| Topic | Type | Description |
+|---|---|---|
+| `/ridescan/safety_stop` | `std_msgs/Bool` | True when risk exceeds threshold |
+| `/ridescan/risk_score` | `std_msgs/Float32` | Latest batch risk score |
+
+**Topics subscribed:**
+
+| Topic | Type | Description |
+|---|---|---|
+| `/odom` | `nav_msgs/Odometry` | Robot pose and velocity |
+
+---
+
+### 2. `way_point_follower_node` (Stage 3 extension)
+
+The mission execution layer, extended in Stage 3 to subscribe to
+`/ridescan/safety_stop`. When the safety monitor publishes `True`, the
+waypoint follower immediately halts the robot by publishing a zero-velocity
+`Twist` to `/cmd_vel` and suspends further waypoint navigation until the
+stop is cleared.
+
+This is the mechanism that closes the loop... the API's risk assessment
+directly controls whether the robot continues its mission.
+
+**Safety stop behavior:**
+- Receives `Bool` on `/ridescan/safety_stop`
+- On `True`: publishes zero `Twist` to `/cmd_vel`, pauses waypoint execution
+- On `False` (recovery): resumes mission from current waypoint
+- Logs all stop and resume events with the associated risk score
+
+---
+
+### 3. `odom_live_plot_path` (Visualisation Node)
+
+A real-time matplotlib visualiser that renders Davie's path as the mission
+executes. Anomaly events from the safety monitor are overlaid as red diamond
+markers at the exact coordinates where the risk score exceeded the threshold.
+
+**What the plot shows:**
+
+| Element | Description |
+|---|---|
+| Blue line | Live robot trajectory |
+| Red dot | Current robot position (updates at 100ms) |
+| Green triangle | Mission start position |
+| Black × | Predefined waypoints |
+| Red diamonds | Anomaly positions (risk ≥ threshold) |
+| Title bar | Live sample count, total distance, anomaly count |
+
+The node uses `rclpy.spin_once()` inside matplotlib's `FuncAnimation`
+callback, allowing ROS callbacks and the GUI to share a single thread
+without blocking.
+
+**Topics subscribed:**
+
+| Topic | Type | Description |
+|---|---|---|
+| `/odom` | `nav_msgs/Odometry` | Robot position for path rendering |
+| `/ridescan/risk_assessment` | `std_msgs/String` | Anomaly events for overlay markers |
+
+---
+
+## SMS Alerting — Africa's Talking Integration
+
+Stage 3 integrates Africa's Talking as the SMS alerting provider. When the
+safety monitor detects a risk score above threshold, an SMS is dispatched
+immediately to the configured operator number. A second SMS is sent when
+the risk score drops back below threshold and the robot resumes.
+
+**Alert messages:**
+
+| Event | SMS Content |
+|---|---|
+| Safety stop triggered | `RideScan ALERT: Davie-Perimeter-Bot safety stop triggered. Risk score {score} (threshold {threshold}).` |
+| Robot resumed | `RideScan: Davie-Perimeter-Bot resumed. Risk score {score} back below threshold.` |
+
+**Setup:**
+
+```bash
+pip install africastalking --break-system-packages
+```
+
+```bash
+export AT_USERNAME=sandbox          # use 'sandbox' for testing
+export AT_API_KEY=your_key_here
+export AT_TO_NUMBER=phoneNumber
+```
+
+The SMS integration is non-blocking , a failure to send does not interrupt
+the safety stop logic or the mission. Errors are logged to the ROS console
+only.
+
+---
+
+## Environment Variables
+
+All credentials are loaded from environment variables. Never hardcode keys.
+
+```bash
+# RideScan
+export RIDESCAN_API_KEY=ridescan_api_key
+
+# Africa's Talking
+export AT_USERNAME=sandbox
+export AT_API_KEY=africastalking_api_key
+export AT_TO_NUMBER=phoneNumber
+```
+
+Add these to `~/.bashrc` for persistence:
+
+```bash
+echo 'export RIDESCAN_API_KEY=your_key' >> ~/.bashrc
+echo 'export AT_USERNAME=sandbox' >> ~/.bashrc
+echo 'export AT_API_KEY=your_key' >> ~/.bashrc
+echo 'export AT_TO_NUMBER=+2349033429138' >> ~/.bashrc
+source ~/.bashrc
+```
+
+---
+
+## Running the Full Stage 3 Stack
+
+Four terminals are required for a complete Stage 3 run:
+
+**Terminal 1 — Gazebo simulation:**
+```bash
+ros2 launch robot gazebo_sim.launch.py
+```
+
+**Terminal 2 — Safety monitor (start first, before the mission):**
+```bash
+ros2 run ridescan_ros2_bridge ridescan_safety_monitor_node
+```
+
+**Terminal 3 — Waypoint follower (mission execution):**
+```bash
+ros2 run ridescan_ros2_bridge way_point_follower_node
+```
+
+**Terminal 4 — Live path visualiser (optional but recommended):**
+```bash
+ros2 run ridescan_ros2_bridge odom_plotter_node
+```
+
+**Expected sequence of events:**
+1. Safety monitor starts and begins buffering odometry
+2. Waypoint follower sends Davie through the perimeter loop
+3. Every 30 seconds, a telemetry batch is uploaded to RideScan
+4. RideScan returns a risk score
+5. Score is published to `/ridescan/risk_score` and visible in the plotter
+6. If score ≥ threshold, `True` is published to `/ridescan/safety_stop`
+7. Waypoint follower halts the robot
+8. SMS alert fires to the operator number
+9. Risk score and anomaly position are logged and rendered on the plotter
+10. Dashboard at `hackathon.ridescan.cloud` updates with the new execution cycle
+
+---
+
+## RideScan Dashboard Results
+
+The Warehouse-Perimeter-Inspection mission is registered and actively
+monitored at `hackathon.ridescan.cloud` under the Hackathon workspace.
+
+**Mission registration:**
+
+| Field | Value |
+|---|---|
+| Mission name | Warehouse-Perimeter-Inspection |
+| Robot name | Davie_Perimeter_Bot |
+| Robot type | Wheeled Mobile Robot |
+| Calibration possible | ✅ True |
+| Inference possible | ✅ True |
+
+**What the dashboard shows:**
+
+**Multi-Mission Risk Comparison graph**
+
+The risk score curve for Warehouse-Perimeter-Inspection starts at
+approximately 20 at execution cycle 0 and climbs steadily, crossing
+RideScan's Critical Threshold of 50 at cycle 1 and peaking near 100 by
+cycle 5. The red dotted critical threshold line is drawn by RideScan's
+own dashboard — not a local configuration — confirming that the risk
+events recorded are genuine API-scored anomalies, not locally simulated
+values.
+
+**Multi-Robot Risk Heatmap**
+
+| Date | Risk Level | Activity |
+|---|---|---|
+| 07/07/2026 | Low (green) | First live missions, initial telemetry streaming |
+| 07/08/2026 | High (orange/red) | Risk threshold breached, safety stops triggered |
+
+**Execution Volume**
+
+Multiple execution cycles recorded across both days, all processed through
+RideScan's live inference endpoint. Each cycle represents one complete
+telemetry batch uploaded, scored, and acted upon.
+
+---
+
+## Closed Loop Summary
+
+The defining characteristic of this Stage 3 integration is that the risk
+score is not merely logged — it controls the robot.
+
+| Layer | Component | Role |
+|---|---|---|
+| Sensing | `/odom` subscription | Captures robot state at every timestep |
+| Processing | `ridescan_safety_monitor_node` | Batches, uploads, and scores telemetry |
+| Intelligence | RideScan Inference API | Returns risk score based on calibrated baseline |
+| Decision | Safety stop publisher | Converts score into a binary stop/go signal |
+| Actuation | `way_point_follower_node` | Halts robot when stop signal is True |
+| Alerting | Africa's Talking SMS | Notifies human operator immediately |
+| Visualisation | `odom_live_plot_path` | Renders path and anomaly positions in real time |
+| Monitoring | RideScan dashboard | Records all execution cycles for evaluation |
+
+Every layer is connected. A risk event detected by the API propagates
+through the system in under one batch cycle (30 seconds), stopping the
+robot autonomously and alerting a human operator — without any manual
+intervention required.
+
+---
+
+## Stage 3 Demonstration Video
+
+*Video link to be added prior to final submission.*
+
+The demonstration video will show:
+- Full Gazebo simulation environment with Davie executing the perimeter loop
+- Safety monitor node terminal showing batch uploads and risk scores returned
+- Risk score climbing above the Critical Threshold (50) and safety stop triggering
+- Robot halting mid-mission in response to the API response
+- Africa's Talking SMS alert firing on stop and recovery
+- Live path plotter with red anomaly diamond overlaid at the stop position
+- RideScan dashboard updating with the new execution cycle in real time
