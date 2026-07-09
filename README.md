@@ -503,6 +503,19 @@ only.
 
 ---
 
+
+### SMS Safety Alert
+
+The integration sends an SMS notification to the operator whenever RideScan
+returns a risk score above the configured threshold and the robot performs
+an autonomous safety stop.
+
+![RideScan SMS Alert](illustrations/Sms_alert.png)
+
+*Figure: SMS alert indicating that Davie_Perimeter_Bot was stopped after a RideScan risk score.*
+
+---
+
 ## Environment Variables
 
 All credentials are loaded from environment variables. Never hardcode keys.
