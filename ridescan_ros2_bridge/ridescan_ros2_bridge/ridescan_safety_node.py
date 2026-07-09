@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ridescan_safety_monitor_node.py
 
@@ -6,7 +7,8 @@ process_file, runs inference, and if the returned risk_score exceeds a
 threshold, publishes a safety-stop signal that way_point_follower.py listens
 for (since this robot uses a direct /cmd_vel P-controller).
 
-Assumes calibration has ALREADY been completed for this robot_id/mission_id.(calibration initially done by ride_scan_calibration_risk_score.py node)
+Assumes calibration has ALREADY been completed for this robot_id/mission_id.
+(calibration initially done by ride_scan_calibration_risk_score.py node)
 
 Author : Davies Iyanuoluwa Ogunsina
 Maintainer : Davies Iyanuoluwa Ogunsina
@@ -26,13 +28,7 @@ from std_msgs.msg import Float32, Bool
 
 from .ridescan_client import RideScanClient
 
-try:
-    from twilio.rest import Client as TwilioClient
-    TWILIO_AVAILABLE = True
-except ImportError:
-    TWILIO_AVAILABLE = False
-# --- Twilio disabled for now ---
-TWILIO_AVAILABLE = False
+import africastalking
 
 
 class RideScanSafetyMonitor(Node):
@@ -41,20 +37,11 @@ class RideScanSafetyMonitor(Node):
 
         # ---- Config - real values from your completed calibration ----
         self.declare_parameter("api_key", os.environ.get("RIDESCAN_API_KEY", "YOUR_API_KEY"))
-        self.declare_parameter("robot_id", "eaa3a139-8e8d-447f-94de-839baa1de39b") 
-        self.declare_parameter("mission_id", "56c59a55-46fb-4abf-8b91-d11a93ddb009") 
+        self.declare_parameter("robot_id", "")
+        self.declare_parameter("mission_id", "")
         self.declare_parameter("robot_type", "wheeled_mobile")
         self.declare_parameter("batch_seconds", 30.0)
-        # Calibration range was ~0-29 (max was mission_eight.csv at 29.19).
-        # Start conservative; tune upward once you've observed real live scores.
-        # self.declare_parameter("risk_threshold", 5.0)
         self.declare_parameter("risk_threshold", 40.0)
-
-        # Twilio SMS alerting set these via env vars, not hardcoded
-        self.declare_parameter("twilio_account_sid", os.environ.get("TWILIO_ACCOUNT_SID", ""))
-        self.declare_parameter("twilio_auth_token", os.environ.get("TWILIO_AUTH_TOKEN", ""))
-        self.declare_parameter("twilio_from_number", os.environ.get("TWILIO_FROM_NUMBER", ""))
-        self.declare_parameter("twilio_to_number", os.environ.get("TWILIO_TO_NUMBER", ""))
 
         self.api_key = self.get_parameter("api_key").value
         self.robot_id = self.get_parameter("robot_id").value
@@ -63,31 +50,20 @@ class RideScanSafetyMonitor(Node):
         self.batch_seconds = self.get_parameter("batch_seconds").value
         self.risk_threshold = self.get_parameter("risk_threshold").value
 
-        # Twilio setup
-        self.twilio_sid = self.get_parameter("twilio_account_sid").value
-        self.twilio_token = self.get_parameter("twilio_auth_token").value
-        self.twilio_from = self.get_parameter("twilio_from_number").value
-        self.twilio_to = self.get_parameter("twilio_to_number").value
-        self.twilio_client = None
-        if TWILIO_AVAILABLE and self.twilio_sid and self.twilio_token:
-            self.twilio_client = TwilioClient(self.twilio_sid, self.twilio_token)
-            self.get_logger().info("Twilio SMS alerting enabled.")
-        else:
-            self.get_logger().warn(
-                "Twilio not configured (missing library or credentials) - "
-                "SMS alerts disabled, will only log locally.")
+        # ---- Africa's Talking SMS setup ----
+        at_username = os.environ.get("AT_USERNAME", "sandbox")
+        at_api_key = os.environ.get("AT_API_KEY", "")
+        self.at_to_number = os.environ.get("AT_TO_NUMBER", "+2349033429138")
+
+        africastalking.initialize(at_username, at_api_key)
+        self.sms = africastalking.SMS
+        self.get_logger().info("Africa's Talking SMS alerting enabled.")
 
         self.client = RideScanClient(api_key=self.api_key)
 
         # ---- Odometry buffering ----
         self._buffer_lock = threading.Lock()
         self._rows = []
-        # MUST match the exact schema of your original training CSVs:
-        # timestamp,pose_position_x,pose_position_y,pose_position_z,
-        # pose_orientation_roll,pose_orientation_pitch,pose_orientation_yaw,
-        # twist_linear_x,twist_linear_y,twist_linear_z,
-        # twist_angular_x,twist_angular_y,twist_angular_z,
-        # linear_acceleration_x,linear_acceleration_y,linear_acceleration_z
         self._row_header = [
             "timestamp",
             "pose_position_x", "pose_position_y", "pose_position_z",
@@ -103,13 +79,10 @@ class RideScanSafetyMonitor(Node):
             Odometry, "/odom", self._odom_callback, 10)
 
         # Safety action interfaces
-        # This robot uses square_controller.py (direct /cmd_vel P-controller),
-        # NOT Nav2 actions , so we signal it via a Bool topic it subscribes to,
-        # rather than trying to cancel a Nav2 goal that doesn't exist here.
         self.safety_stop_pub = self.create_publisher(Bool, "/ridescan/safety_stop", 10)
         self.risk_score_pub = self.create_publisher(Float32, "/ridescan/risk_score", 10)
         self._is_stopped = False
-        self._processing = False  # guards against overlapping batch cycles
+        self._processing = False
 
         self.create_timer(self.batch_seconds, self._trigger_batch_cycle)
 
@@ -118,31 +91,22 @@ class RideScanSafetyMonitor(Node):
             f"risk threshold={self.risk_threshold}")
 
     def _send_sms_alert(self, message: str):
-        if not self.twilio_client:
-            return
         try:
-            self.twilio_client.messages.create(
-                body=message,
-                from_=self.twilio_from,
-                to=self.twilio_to,
-            )
-            self.get_logger().info("SMS alert sent.")
+            response = self.sms.send(message, [self.at_to_number])
+            self.get_logger().info(f"SMS alert sent: {response}")
         except Exception as e:
             self.get_logger().error(f"Failed to send SMS alert: {e}")
 
     def _quaternion_to_euler(self, q):
         """Convert geometry_msgs/Quaternion to (roll, pitch, yaw) in radians."""
-        # roll (x-axis rotation)
         sinr_cosp = 2 * (q.w * q.x + q.y * q.z)
         cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y)
         roll = math.atan2(sinr_cosp, cosr_cosp)
 
-        # pitch (y-axis rotation)
         sinp = 2 * (q.w * q.y - q.z * q.x)
-        sinp = max(-1.0, min(1.0, sinp))  # clamp for numerical safety
+        sinp = max(-1.0, min(1.0, sinp))
         pitch = math.asin(sinp)
 
-        # yaw (z-axis rotation)
         siny_cosp = 2 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
         yaw = math.atan2(siny_cosp, cosy_cosp)
@@ -157,10 +121,6 @@ class RideScanSafetyMonitor(Node):
         lin = msg.twist.twist.linear
         ang = msg.twist.twist.angular
 
-        # Odometry has no native acceleration field  approximate it via
-        # finite difference of linear velocity between consecutive callbacks,
-        # matching the linear_acceleration_x/y/z columns your training data
-        # includes (likely originally sourced from an IMU).
         if self._prev_twist_linear is not None and self._prev_time is not None:
             dt = now_sec - self._prev_time
             if dt > 1e-6:
@@ -220,13 +180,6 @@ class RideScanSafetyMonitor(Node):
                     [path], event_times=[event_time])
                 uploaded = upload_resp["data"]["uploaded_files"]
             except Exception as upload_err:
-                # RideScan's gateway sometimes 502s even when the file was
-                # actually saved server-side. Instead of giving up, check
-                # the inference files list for a recently-uploaded file
-                # matching our local filename before treating this as a
-                # real failure. Retry the check a few times since the
-                # server may take a moment to register the file even
-                # though the upload itself already landed.
                 self.get_logger().warn(
                     f"Upload request failed ({upload_err}); checking if it "
                     f"landed on the server anyway before giving up...")
@@ -235,7 +188,7 @@ class RideScanSafetyMonitor(Node):
                 import requests as _requests
                 import time as _time
                 for attempt in range(4):
-                    _time.sleep(3)  # give the backend a moment to register it
+                    _time.sleep(3)
                     try:
                         r = _requests.get(
                             f"{self.client.base_url}/api/inference/files",
