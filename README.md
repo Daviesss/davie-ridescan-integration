@@ -482,7 +482,7 @@ the risk score drops back below threshold and the robot resumes.
 
 | Event | SMS Content |
 |---|---|
-| Safety stop triggered | `RideScan ALERT: Davie-Perimeter-Bot safety stop triggered. Risk score {score} (threshold {threshold}).` |
+| Safety stop triggered | `RideScan ALERT: Davie-Perimeter-Bot stopped. Risk score {score} (threshold {threshold}).` |
 | Robot resumed | `RideScan: Davie-Perimeter-Bot resumed. Risk score {score} back below threshold.` |
 
 **Setup:**
