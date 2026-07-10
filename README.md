@@ -325,7 +325,7 @@ Score breaches threshold → Safety stop triggers → Human operator alerted via
 ```
 
 This is not a logging pipeline. Every component in Stage 3 closes a real
-operational loop......the robot makes autonomous decisions based on live API
+operational loop — the robot makes autonomous decisions based on live API
 intelligence, and a human is notified the moment something goes wrong.
 
 ---
@@ -362,7 +362,7 @@ intelligence, and a human is notified the moment something goes wrong.
                ┌─────────────┼─────────────┐
                │             │             │
                ▼             ▼             ▼
-        /ridescan/      /ridescan/     Africa's Talking
+        /ridescan/      /ridescan/       Twilio
         safety_stop     risk_score      SMS Alert
                │
                ▼
@@ -391,8 +391,8 @@ returned risk score exceeds the configured threshold.
 - Calls the inference endpoint and polls until a risk score is returned
 - Publishes the risk score to `/ridescan/risk_score` (Float32)
 - If `risk_score >= risk_threshold`, publishes `True` to `/ridescan/safety_stop` (Bool)
-- Fires an SMS alert via Africa's Talking on both safety stop and recovery events
-- Handles 502 gateway errors gracefully..... verifies whether the file actually
+- Fires an SMS alert via Twilio on both safety stop and recovery events
+- Handles 502 gateway errors gracefully — verifies whether the file actually
   landed on the server before treating the upload as a genuine failure
 - Guards against overlapping batch cycles with a `_processing` flag
 
@@ -430,7 +430,7 @@ waypoint follower immediately halts the robot by publishing a zero-velocity
 `Twist` to `/cmd_vel` and suspends further waypoint navigation until the
 stop is cleared.
 
-This is the mechanism that closes the loop... the API's risk assessment
+This is the mechanism that closes the loop — the API's risk assessment
 directly controls whether the robot continues its mission.
 
 **Safety stop behavior:**
@@ -471,10 +471,10 @@ without blocking.
 
 ---
 
-## SMS Alerting — Africa's Talking Integration
+## SMS Alerting — Twilio Integration
 
-Stage 3 integrates Africa's Talking as the SMS alerting provider. When the
-safety monitor detects a risk score above threshold, an SMS is dispatched
+Stage 3 integrates Twilio as the SMS alerting provider. When the safety
+monitor detects a risk score above threshold, an SMS is dispatched
 immediately to the configured operator number. A second SMS is sent when
 the risk score drops back below threshold and the robot resumes.
 
@@ -488,21 +488,21 @@ the risk score drops back below threshold and the robot resumes.
 **Setup:**
 
 ```bash
-pip install africastalking --break-system-packages
+pip install twilio --break-system-packages
 ```
 
 ```bash
-export AT_USERNAME=sandbox          # use 'sandbox' for testing
-export AT_API_KEY=your_key_here
-export AT_TO_NUMBER=phoneNumber
+export TWILIO_ACCOUNT_SID=your_account_sid
+export TWILIO_AUTH_TOKEN=your_auth_token
+export TWILIO_FROM_NUMBER=your_twilio_phone_number
+export TWILIO_TO_NUMBER=your_phone_number
 ```
 
-The SMS integration is non-blocking , a failure to send does not interrupt
+The SMS integration is non-blocking — a failure to send does not interrupt
 the safety stop logic or the mission. Errors are logged to the ROS console
 only.
 
 ---
-
 
 ### SMS Safety Alert
 
@@ -510,7 +510,7 @@ The integration sends an SMS notification to the operator whenever RideScan
 returns a risk score above the configured threshold and the robot performs
 an autonomous safety stop.
 
-![RideScan SMS Alert](illustrations/Sms_alert.png)
+![RideScan SMS Alert](illustrations/sms_alert.jpg)
 
 *Figure: SMS alert indicating that Davie_Perimeter_Bot was stopped after a RideScan risk score.*
 
@@ -522,21 +522,23 @@ All credentials are loaded from environment variables. Never hardcode keys.
 
 ```bash
 # RideScan
-export RIDESCAN_API_KEY=ridescan_api_key
+export RIDESCAN_API_KEY=your_ridescan_api_key
 
-# Africa's Talking
-export AT_USERNAME=sandbox
-export AT_API_KEY=africastalking_api_key
-export AT_TO_NUMBER=phoneNumber
+# Twilio
+export TWILIO_ACCOUNT_SID=your_account_sid
+export TWILIO_AUTH_TOKEN=your_auth_token
+export TWILIO_FROM_NUMBER=your_twilio_phone_number
+export TWILIO_TO_NUMBER=your_phone_number
 ```
 
 Add these to `~/.bashrc` for persistence:
 
 ```bash
 echo 'export RIDESCAN_API_KEY=your_key' >> ~/.bashrc
-echo 'export AT_USERNAME=sandbox' >> ~/.bashrc
-echo 'export AT_API_KEY=your_key' >> ~/.bashrc
-echo 'export AT_TO_NUMBER=+2349033429138' >> ~/.bashrc
+echo 'export TWILIO_ACCOUNT_SID=your_sid' >> ~/.bashrc
+echo 'export TWILIO_AUTH_TOKEN=your_token' >> ~/.bashrc
+echo 'export TWILIO_FROM_NUMBER=your_twilio_number' >> ~/.bashrc
+echo 'export TWILIO_TO_NUMBER=your_phone_number' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -574,7 +576,7 @@ ros2 run ridescan_ros2_bridge odom_plotter_node
 5. Score is published to `/ridescan/risk_score` and visible in the plotter
 6. If score ≥ threshold, `True` is published to `/ridescan/safety_stop`
 7. Waypoint follower halts the robot
-8. SMS alert fires to the operator number
+8. Twilio SMS alert fires to the operator number
 9. Risk score and anomaly position are logged and rendered on the plotter
 10. Dashboard at `hackathon.ridescan.cloud` updates with the new execution cycle
 
@@ -634,7 +636,7 @@ score is not merely logged — it controls the robot.
 | Intelligence | RideScan Inference API | Returns risk score based on calibrated baseline |
 | Decision | Safety stop publisher | Converts score into a binary stop/go signal |
 | Actuation | `way_point_follower_node` | Halts robot when stop signal is True |
-| Alerting | Africa's Talking SMS | Notifies human operator immediately |
+| Alerting | Twilio SMS | Notifies human operator immediately |
 | Visualisation | `odom_live_plot_path` | Renders path and anomaly positions in real time |
 | Monitoring | RideScan dashboard | Records all execution cycles for evaluation |
 
@@ -654,6 +656,6 @@ The demonstration video will show:
 - Safety monitor node terminal showing batch uploads and risk scores returned
 - Risk score climbing above the Critical Threshold (50) and safety stop triggering
 - Robot halting mid-mission in response to the API response
-- Africa's Talking SMS alert firing on stop and recovery
+- Twilio SMS alert firing on stop and recovery
 - Live path plotter with red anomaly diamond overlaid at the stop position
 - RideScan dashboard updating with the new execution cycle in real time
