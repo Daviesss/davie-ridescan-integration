@@ -60,23 +60,10 @@ done
 
 ### 2. `way_point_follower_node`
 
-The mission execution layer. Sends Davie through a fixed 5-waypoint
-perimeter loop using Nav2's `NavigateToPose` action client.
+The mission execution layer. Sends Davie through a fixed waypoints
+perimeter loop.
 
 **The route (warehouse perimeter inspection):**
-
-| Waypoint | x | y | Yaw | Description |
-|---|---|---|---|---|
-| 1 | 1.0 | 0.0 | 0° | Dock exit |
-| 2 | 1.0 | 2.5 | 90° | Corner A |
-| 3 | -1.0 | 2.5 | 180° | Corner B |
-| 4 | -1.0 | 0.0 | 270° | Corner C |
-| 5 | 0.0 | 0.0 | 0° | Return to dock |
-
-For each waypoint, the node converts the yaw angle to a quaternion, sends
-a `NavigateToPose` goal to Nav2, and waits for confirmation of arrival
-before proceeding to the next. If any waypoint fails or times out (60s),
-the mission aborts and logs the failure.
 
 One full execution of this script = one complete mission run. Run it 15
 times (alongside `ridescan_bridge_node`) to produce the calibration
@@ -106,7 +93,7 @@ autonomously through 5 predefined waypoints that trace the boundary of a
 simulated warehouse environment, then returns to its origin.
 
 The mission is executed entirely autonomously via the `way_point_follower_node`,
-which sends each waypoint as a Nav2 `NavigateToPose` action goal, waits for
+which sends each waypoint , waits for
 confirmed arrival, then proceeds to the next. No manual intervention is
 required between waypoints. Each run is identical in route, speed, and
 behavior producing a clean, repeatable telemetry baseline across all 15
@@ -137,20 +124,6 @@ Real-world deployments this mission maps directly to:
 | Healthcare | Hospital corridor patrol, asset tracking |
 | Hospitality | Hotel and office campus delivery and monitoring |
 
-### Mission Illustration Video
-The following video demonstrates one complete execution of the Warehouse Perimeter Inspection mission in Gazebo Sim. Davie autonomously exits the dock, navigates through the five predefined perimeter waypoints using Nav2, and returns to its starting position without manual intervention.
-
-The video illustrates the exact behavior used to generate the RideScan calibration baseline dataset. Each of the 15 calibration runs follows this same route and operational profile, allowing RideScan to learn the robot's normal behavioral envelope.
-
-Video contents:
-- Gazebo simulation environment
-- Nav2-driven waypoint execution
-- Davie's traversal through all five waypoints
-- Return to dock
-- Terminal output showing mission progress
-- RideScan bridge node recording telemetry in parallel
-
-Video file: [Watch the Warehouse Perimeter Inspection Demo/Demonstration video](https://youtu.be/x1DSrypx_-4)
 
 ---
 
