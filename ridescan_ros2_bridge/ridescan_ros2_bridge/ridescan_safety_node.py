@@ -5,7 +5,8 @@ ridescan_safety_monitor_node.py
 Buffers /odom into rolling CSV batches, uploads each batch to RideScan as a
 process_file, runs inference, and if the returned risk_score exceeds a
 threshold, publishes a safety-stop signal that way_point_follower.py listens
-for (since this robot uses a direct /cmd_vel P-controller) and send alert SMS via Africa's Talking.
+for (since this robot uses a direct /cmd_vel P-controller) and sends an alert
+SMS via Twilio.
 
 Assumes calibration has ALREADY been completed for this robot_id/mission_id.
 (calibration initially done by ride_scan_calibration_risk_score.py node)
@@ -28,7 +29,7 @@ from std_msgs.msg import Float32, Bool
 
 from .ridescan_client import RideScanClient
 
-import africastalking
+from twilio.rest import Client as TwilioClient
 
 
 class RideScanSafetyMonitor(Node):
@@ -50,14 +51,14 @@ class RideScanSafetyMonitor(Node):
         self.batch_seconds = self.get_parameter("batch_seconds").value
         self.risk_threshold = self.get_parameter("risk_threshold").value
 
-        # ---- Africa's Talking SMS setup ----
-        at_username = os.environ.get("AT_USERNAME", "sandbox")
-        at_api_key = os.environ.get("AT_API_KEY", "")
-        self.at_to_number = os.environ.get("AT_TO_NUMBER", "+2349033429138")
-
-        africastalking.initialize(at_username, at_api_key)
-        self.sms = africastalking.SMS
-        self.get_logger().info("Africa's Talking SMS alerting enabled.")
+        # ---- Twilio SMS setup ----
+        self.twilio_client = TwilioClient(
+            os.environ.get("TWILIO_ACCOUNT_SID", ""),
+            os.environ.get("TWILIO_AUTH_TOKEN", "")
+        )
+        self.twilio_from = os.environ.get("TWILIO_FROM_NUMBER", "")
+        self.twilio_to = os.environ.get("TWILIO_TO_NUMBER", "+2349033429138")
+        self.get_logger().info("Twilio SMS alerting enabled.")
 
         self.client = RideScanClient(api_key=self.api_key)
 
@@ -92,8 +93,12 @@ class RideScanSafetyMonitor(Node):
 
     def _send_sms_alert(self, message: str):
         try:
-            response = self.sms.send(message, [self.at_to_number])
-            self.get_logger().info(f"SMS alert sent: {response}")
+            self.twilio_client.messages.create(
+                body=message,
+                from_=self.twilio_from,
+                to=self.twilio_to,
+            )
+            self.get_logger().info("SMS alert sent via Twilio.")
         except Exception as e:
             self.get_logger().error(f"Failed to send SMS alert: {e}")
 
@@ -246,7 +251,7 @@ class RideScanSafetyMonitor(Node):
                         f"Risk score {max_score} >= threshold {self.risk_threshold}. "
                         f"Publishing safety stop.")
                     self._send_sms_alert(
-                        f"RideScan ALERT: Davie-Perimeter-Bot safety stop triggered. "
+                        f"RideScan ALERT: Davie-Perimeter-Bot stopped. "
                         f"Risk score {max_score:.2f} (threshold {self.risk_threshold}).")
                 self._is_stopped = True
             else:
