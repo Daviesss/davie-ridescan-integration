@@ -1,27 +1,27 @@
 # davie-ridescan-integration
 A production-grade ROS 2 integration for the RideScan Safety Layer API: telemetry bridge, risk diagnostics, and autonomous safety response for mobile robots.
 
-## Problem & Solution : Why RideScan
+## Problem & Solution  Why RideScan
 
-**The problem:** Autonomous robots deployed for repetitive, unsupervised work .. like warehouse perimeter inspection  degrade silently. Hardware wear, sensor drift, wheel slip, and minor obstacle encounters build up gradually and rarely trip a hard fault in the robot's own control stack. Traditional monitoring is binary (the robot either completes its mission or crashes) or reactive (someone reviews logs after something has already gone wrong). By the time a problem becomes visible through conventional means, a safety incident, a missed anomaly, or hardware damage may have already occurred ,  and there's no way to compare "how the robot is behaving today" against "how it behaved when it was healthy."
+**The problem:** Autonomous robots deployed for repetitive, unsupervised work  like warehouse perimeter inspection  degrade silently. Hardware wear, sensor drift, wheel slip, and minor obstacle encounters build up gradually and rarely trip a hard fault in the robot's own control stack. Traditional monitoring is binary (the robot either completes its mission or crashes) or reactive (someone reviews logs after something has already gone wrong). By the time a problem becomes visible through conventional means, a safety incident, a missed anomaly, or hardware damage may have already occurred  and there's no way to compare "how the robot is behaving today" against "how it behaved when it was healthy."
 
-**The solution:** This integration treats RideScan as an independent behavioral safety layer sitting above the robot's own navigation stack, rather than as a logging add-on. Fifteen clean calibration runs teach RideScan what a healthy perimeter inspection looks like velocity profile, obstacle clearance, heading changes, motor command patterns across every phase of the mission. In live operation, telemetry is streamed to RideScan's inference API in near real time, and any run that drifts meaningfully from that learned baseline is converted into a quantified risk score. When that score crosses the critical threshold, the robot autonomously halts itself and a human operator is alerted by SMS. This closes the loop between *detection* and *action*: RideScan doesn't just tell you something looks off after the fact, it stops the robot the moment it does.
+**The solution:** This integration treats RideScan as an independent behavioral safety layer sitting above the robot's own navigation stack, rather than as a logging add-on. Fifteen clean calibration runs teach RideScan what a healthy perimeter inspection looks like  velocity profile, obstacle clearance, heading changes, motor command patterns  across every phase of the mission. In live operation, telemetry is streamed to RideScan's inference API in near real time, and any run that drifts meaningfully from that learned baseline is converted into a quantified risk score. When that score crosses the critical threshold, the robot autonomously halts itself and a human operator is alerted by SMS. This closes the loop between *detection* and *action*: RideScan doesn't just tell you something looks off after the fact, it stops the robot the moment it does.
 
 ## Robot Mission Selection Reasoning
 
-**Why warehouse perimeter inspection:** This is one of the highest-frequency real-world autonomous robot deployments (50–200 loops per day per facility), so a calibration/inference pipeline built for it maps directly onto commercial use cases rather than being a synthetic demo. It also has a naturally repeatable, loopable route, which is exactly what a calibration-based safety layer needs ... RideScan can only learn "normal" from a mission that has a clear, repeatable shape.
+**Why warehouse perimeter inspection:** This is one of the highest-frequency real-world autonomous robot deployments (50–200 loops per day per facility), so a calibration/inference pipeline built for it maps directly onto commercial use cases rather than being a synthetic demo. It also has a naturally repeatable, loopable route, which is exactly what a calibration-based safety layer needs  RideScan can only learn "normal" from a mission that has a clear, repeatable shape.
 
 **Why a fixed 5-waypoint loop:** A route with distinct dock-exit, straight-segment, turn, arrival, and return phases gives RideScan several behaviorally different sub-phases to learn from within a single run, rather than one flat, undifferentiated signal. Five waypoints was chosen as the minimum needed to exercise straight-line cruising and cornering behavior without making the 15-run calibration pass (a hard prerequisite before any inference is possible) too time-consuming to collect.
 
 **Why a differential-drive robot (Davie):** Differential drive is the simplest robot model that still produces a realistic velocity/heading/turn signature, letting the mission focus on the RideScan integration itself rather than on kinematics. It also reuses a Nav2 + SLAM Toolbox stack already proven in earlier simulation work, reducing the number of new variables introduced during a time-boxed hackathon stage.
 
-**Why simulation (Gazebo) over hardware:** Simulation gives deterministic, repeatable starting conditions across all 15 calibration runs the same route, same environment, same starting pose every time  so any variation RideScan sees in the baseline is close to pure floating-point/path-execution noise rather than real-world variability. That produces a tight, precise behavioral fingerprint, which is the right target for a calibration baseline, and it removes hardware availability as a constraint on the submission timeline.
+**Why simulation (Gazebo) over hardware:** Simulation gives deterministic, repeatable starting conditions across all 15 calibration runs  the same route, same environment, same starting pose every time  so any variation RideScan sees in the baseline is close to pure floating-point/path-execution noise rather than real-world variability. That produces a tight, precise behavioral fingerprint, which is the right target for a calibration baseline, and it removes hardware availability as a constraint on the submission timeline.
 
 ## Data Collection & API Integration Strategy
 
-**Stage 2 — calibration data strategy:** Telemetry is captured from exactly three ROS 2 topics — `/odom`, `/scan`, and `/cmd_vel` — chosen because together they cover position/heading, environment geometry, and commanded motion, which is enough to reconstruct the full behavioral signature of a run without over-instrumenting the robot. Each of the 15 calibration runs is written as one complete CSV per mission instance, giving RideScan a clean one-file-per-run structure to calibrate against.
+**Stage 2  calibration data strategy:** Telemetry is captured from exactly three ROS 2 topics  `/odom`, `/scan`, and `/cmd_vel`  chosen because together they cover position/heading, environment geometry, and commanded motion, which is enough to reconstruct the full behavioral signature of a run without over-instrumenting the robot. Each of the 15 calibration runs is written as one complete CSV per mission instance, giving RideScan a clean one-file-per-run structure to calibrate against.
 
-**Stage 3 — live inference strategy:** The same three-signal telemetry model carries over unchanged from Stage 2 so the Stage 2 baseline stays valid for Stage 3 inference — nothing about the signal set changes between calibration and live scoring. What changes is the batching strategy: instead of one CSV per full mission run, telemetry is buffered into rolling 30-second batches and uploaded continuously via the `process_file` endpoint, which is what makes near-real-time risk scoring possible during an in-progress mission rather than only after it ends.
+**Stage 3  live inference strategy:** The same three-signal telemetry model carries over unchanged from Stage 2 so the Stage 2 baseline stays valid for Stage 3 inference  nothing about the signal set changes between calibration and live scoring. What changes is the batching strategy: instead of one CSV per full mission run, telemetry is buffered into rolling 30-second batches and uploaded continuously via the `process_file` endpoint, which is what makes near-real-time risk scoring possible during an in-progress mission rather than only after it ends.
 
 **API efficiency and resilience:**
 - Acceleration is derived via finite difference of consecutive `/odom` velocity readings rather than subscribing to a dedicated IMU topic, avoiding an extra sensor dependency for a value the API needs.
@@ -31,7 +31,7 @@ A production-grade ROS 2 integration for the RideScan Safety Layer API: telemetr
 
 ## Execution
 
-**Why this run order matters:** The safety monitor node is always started *before* the waypoint follower so there is no telemetry gap at the start of a mission ...if the monitor started late, the first seconds of dock-exit behavior (one of the phases RideScan explicitly calibrates against) would go unscored. Similarly, the visualiser is optional precisely because it only renders what the monitor and follower already publish; it never gates the safety loop itself.
+**Why this run order matters:** The safety monitor node is always started *before* the waypoint follower so there is no telemetry gap at the start of a mission  if the monitor started late, the first seconds of dock-exit behavior (one of the phases RideScan explicitly calibrates against) would go unscored. Similarly, the visualiser is optional precisely because it only renders what the monitor and follower already publish; it never gates the safety loop itself.
 
 **How one full execution cycle plays out end to end:**
 1. The safety monitor comes online and starts buffering `/odom` telemetry immediately.
@@ -40,7 +40,7 @@ A production-grade ROS 2 integration for the RideScan Safety Layer API: telemetr
 4. RideScan returns a risk score for that batch.
 5. The score is published to `/ridescan/risk_score` and appears live in the path visualiser and on the RideScan dashboard.
 6. If the score is at or above the configured threshold, `True` is published to `/ridescan/safety_stop`.
-7. The waypoint follower immediately zeroes `/cmd_vel` and pauses navigation — the mission does not silently continue on a flagged run.
+7. The waypoint follower immediately zeroes `/cmd_vel` and pauses navigation  the mission does not silently continue on a flagged run.
 8. A Twilio SMS fires to the operator the moment the stop is triggered, and a second SMS fires on recovery once the score drops back below threshold.
 9. The anomaly position and score are logged and rendered as a red diamond marker on the live plotter.
 10. The dashboard at `hackathon.ridescan.cloud` updates with the new execution cycle, so the full history of runs is auditable after the fact as well.
@@ -324,7 +324,7 @@ baseline built from runs that were each slightly different by design.
 
 ---
 
-# Stage 3 — Live API Integration & Autonomous Safety Response
+# Stage 3  Live API Integration & Autonomous Safety Response
 
 ## Overview
 
@@ -343,7 +343,7 @@ Score breaches threshold → Safety stop triggers → Human operator alerted via
 ```
 
 This is not a logging pipeline. Every component in Stage 3 closes a real
-operational loop — the robot makes autonomous decisions based on live API
+operational loop  the robot makes autonomous decisions based on live API
 intelligence, and a human is notified the moment something goes wrong.
 
 ---
@@ -410,7 +410,7 @@ returned risk score exceeds the configured threshold.
 - Publishes the risk score to `/ridescan/risk_score` (Float32)
 - If `risk_score >= risk_threshold`, publishes `True` to `/ridescan/safety_stop` (Bool)
 - Fires an SMS alert via Twilio on both safety stop and recovery events
-- Handles 502 gateway errors gracefully — verifies whether the file actually
+- Handles 502 gateway errors gracefully  verifies whether the file actually
   landed on the server before treating the upload as a genuine failure
 - Guards against overlapping batch cycles with a `_processing` flag
 
@@ -448,7 +448,7 @@ waypoint follower immediately halts the robot by publishing a zero-velocity
 `Twist` to `/cmd_vel` and suspends further waypoint navigation until the
 stop is cleared.
 
-This is the mechanism that closes the loop — the API's risk assessment
+This is the mechanism that closes the loop  the API's risk assessment
 directly controls whether the robot continues its mission.
 
 **Safety stop behavior:**
@@ -489,7 +489,7 @@ without blocking.
 
 ---
 
-## SMS Alerting — Twilio Integration
+## SMS Alerting  Twilio Integration
 
 Stage 3 integrates Twilio as the SMS alerting provider. When the safety
 monitor detects a risk score above threshold, an SMS is dispatched
@@ -516,7 +516,7 @@ export TWILIO_FROM_NUMBER=your_twilio_phone_number
 export TWILIO_TO_NUMBER=your_phone_number
 ```
 
-The SMS integration is non-blocking — a failure to send does not interrupt
+The SMS integration is non-blocking  a failure to send does not interrupt
 the safety stop logic or the mission. Errors are logged to the ROS console
 only.
 
@@ -566,22 +566,22 @@ source ~/.bashrc
 
 Four terminals are required for a complete Stage 3 run:
 
-**Terminal 1 — Gazebo simulation:**
+**Terminal 1  Gazebo simulation:**
 ```bash
 ros2 launch robot gazebo_sim.launch.py
 ```
 
-**Terminal 2 — Safety monitor (start first, before the mission):**
+**Terminal 2  Safety monitor (start first, before the mission):**
 ```bash
 ros2 run ridescan_ros2_bridge ridescan_safety_monitor_node
 ```
 
-**Terminal 3 — Waypoint follower (mission execution):**
+**Terminal 3  Waypoint follower (mission execution):**
 ```bash
 ros2 run ridescan_ros2_bridge way_point_follower_node
 ```
 
-**Terminal 4 — Live path visualiser (optional but recommended):**
+**Terminal 4  Live path visualiser (optional but recommended):**
 ```bash
 ros2 run ridescan_ros2_bridge odom_plotter_node
 ```
@@ -623,7 +623,7 @@ The risk score curve for Warehouse-Perimeter-Inspection starts at
 approximately 20 at execution cycle 0 and climbs steadily, crossing
 RideScan's Critical Threshold of 50 at cycle 1 and peaking near 100 by
 cycle 5. The red dotted critical threshold line is drawn by RideScan's
-own dashboard — not a local configuration — confirming that the risk
+own dashboard  not a local configuration  confirming that the risk
 events recorded are genuine API-scored anomalies, not locally simulated
 values.
 
@@ -645,7 +645,7 @@ telemetry batch uploaded, scored, and acted upon.
 ## Closed Loop Summary
 
 The defining characteristic of this Stage 3 integration is that the risk
-score is not merely logged — it controls the robot.
+score is not merely logged  it controls the robot.
 
 | Layer | Component | Role |
 |---|---|---|
@@ -660,7 +660,7 @@ score is not merely logged — it controls the robot.
 
 Every layer is connected. A risk event detected by the API propagates
 through the system in under one batch cycle (30 seconds), stopping the
-robot autonomously and alerting a human operator — without any manual
+robot autonomously and alerting a human operator  without any manual
 intervention required.
 
 ---
@@ -677,3 +677,23 @@ The demonstration video will show:
 - Twilio SMS alert firing on stop and recovery
 - Live path plotter with red anomaly diamond overlaid at the stop position
 - RideScan dashboard updating with the new execution cycle in real time
+
+---
+
+## What I Learned
+
+**Elevated risk scores were explainable, not a pipeline bug.** During live Stage 3 runs, the RideScan dashboard repeatedly scored Warehouse-Perimeter-Inspection well above the platform's own Critical Threshold (peaking near 100, trend line sitting around 76–80), including a predictive "Early Wear Detected" flag. Rather than treat this as an unexplained anomaly, I traced it to two concrete, expected causes:
+
+- **Increased velocity relative to the calibration baseline.** The 15 calibration runs established a consistent cruise velocity and acceleration profile in `/cmd_vel` and `/odom`. Any live run that drives faster than that baseline shifts acceleration (derived via finite difference in `ridescan_safety_monitor_node`), compresses the time between waypoints, and skews the turn/deceleration signature RideScan learned for each phase  all of which are exactly the signals the calibration step was built to track.
+- **Odometry wheel slip.** Calibration assumes `/cmd_vel` and `/odom` move together in a consistent, correlated way. Slip breaks that correlation  the wheels are commanded one motion but the reported odometry doesn't cleanly track it  which is precisely the kind of subtle divergence a learned behavioral baseline is designed to catch that a simple rule-based check would miss.
+
+This distinction mattered: it confirmed the elevated scores were genuine behavioral deviations (the system working as intended), not an artifact of sim timing, batching, or a bug in my acceleration calculation. Being able to explain *why* a risk score fired, rather than just showing that it fired, is what actually demonstrates the value of a calibrated safety layer over a naive threshold check.
+
+**A local safety threshold below RideScan's own critical line is a deliberate, defensible design choice.** My `ridescan_safety_monitor_node` uses a local `risk_threshold` of 40, while RideScan's own dashboard draws its platform-defined Critical Threshold at 50. This wasn't an oversight  it's an intentional decision to bias the system toward earlier intervention. The robot halts and alerts a human operator before RideScan's own platform would even classify the run as critical, rather than waiting for the official critical designation. This reflects the broader lesson of the integration: RideScan is most valuable as an *independent* layer, and a safety-conscious integrator should be willing to act more conservatively than the platform's own default line, not just mirror it.
+
+## What I'd Build Next
+
+- **Automated baseline drift detection.** Rather than relying on manual inspection of the risk-score trend to spot "Early Wear Detected"-style patterns, I'd add a lightweight local check that flags when several consecutive batches trend upward even if no single batch crosses the safety-stop threshold  catching gradual degradation earlier than a hard cutoff can.
+- **Configurable per-phase thresholds.** Currently `risk_threshold` is a single global value. Since the calibration data already captures distinct phases (dock exit, straight segments, turns, arrival, return), a per-phase threshold would let the safety monitor be stricter during high-precision phases (like waypoint arrival) and more permissive during straight-line cruising.
+- **Closed-loop velocity moderation instead of hard stop.** Right now a threshold breach fully halts the robot. A next iteration could first attempt a velocity reduction in response to a moderate risk score, reserving the full safety stop for scores that remain elevated after slowing down  reducing unnecessary full-mission interruptions for borderline cases like the velocity/slip scenario above.
+- **Real-hardware validation.** This integration was built and calibrated entirely in Gazebo Sim. Running the same calibration-then-inference pipeline on physical hardware would surface real-world edge cases (actual wheel slip, real IMU noise, real network latency to the RideScan API) that a deterministic simulation can't fully replicate.
